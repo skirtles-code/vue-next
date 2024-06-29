@@ -73,7 +73,6 @@ function size(target: IterableCollections, isReadonly = false) {
 }
 
 function add(this: SetTypes, value: unknown) {
-  value = toRaw(value)
   const target = toRaw(this)
   const proto = getProto(target)
   const hadKey = proto.has.call(target, value)
@@ -85,7 +84,6 @@ function add(this: SetTypes, value: unknown) {
 }
 
 function set(this: MapTypes, key: unknown, value: unknown) {
-  value = toRaw(value)
   const target = toRaw(this)
   const { has, get } = getProto(target)
 
@@ -248,8 +246,19 @@ function createInstrumentations() {
       return size(this as unknown as IterableCollections)
     },
     has,
-    add,
-    set,
+    add(this: SetTypes, value: unknown) {
+      // This is what I was proposing...
+      return add.call(this, toRaw(value))
+
+      // ... but you could include the extra checks too:
+      // return add.call(this, !isShallow(value) && !isReadonly(value) ? toRaw(value) : value)
+    },
+    set(this: MapTypes, key: unknown, value: unknown) {
+      return set.call(this, key, toRaw(value))
+
+      // Same again, the extra checks could also be included:
+      // return set.call(this, key, !isShallow(value) && !isReadonly(value) ? toRaw(value) : value)
+    },
     delete: deleteEntry,
     clear,
     forEach: createForEach(false, false),
